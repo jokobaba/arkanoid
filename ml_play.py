@@ -9,7 +9,7 @@ class MLPlay:
         """
         self.ball_served = False
         self.previous_ball = (0,0)
-
+        self.pred = 100  
     def update(self, scene_info):
         """
         Generate the command according to the received `scene_info`.
@@ -19,27 +19,43 @@ class MLPlay:
             scene_info["status"] == "GAME_PASS"):
             return "RESET"
         
-        ball_x = scene_info["ball"][0]
         ball_y = scene_info["ball"][1]
         platform_x = scene_info["platform"][0]
         
 
         if not self.ball_served:
             self.ball_served = True
+            self.previous_ball = scene_info["ball"]
             command = "SERVE_TO_LEFT"
         else:
-            command = "MOVE_RIGHT"
+            self.pred = 100
+            if self.previous_ball[1] - scene_info["ball"][1] < 0:
+               self.pred = scene_info["ball"][0] + ((400- scene_info["ball"][1])//7 * (scene_info["ball"][0]-self.previous_ball[0]))                
 
-        if ball_x - 5 > platform_x :
-            command = "MOVE_RIGHT"
-        elif ball_x + 5 < platform_x :
-            command = "MOVE_LEFT"
-        else :
-            command = "NONE"
-                
+            #預測落點調整　
+            if self.pred > 400 : 
+                self.pred -= 400
+            elif self.pred > 200 and self.pred < 400:
+                self.pred = 200 - (self.pred-200)
+            elif self.pred >-200 and self.pred < 0:
+                self.pred = abs(self.pred) 
+            elif self.pred <-200 :
+                self.pred = 200 - (abs(self.pred) - 200)
 
-         
-
+            if platform_x + 20   > self.pred :
+                command = "MOVE_LEFT"
+                #切球設定
+                if ball_y > 380: 
+                    command = "MOVE_RIGHT"
+            elif platform_x + 20 < self.pred :
+                command = "MOVE_RIGHT"
+                #切球設定
+                if ball_y > 380 :
+                    command = "MOVE_LEFT"
+            else :
+                command = "NONE"
+        #更新"前一點"座標=>"現在球"的座標
+        self.previous_ball = scene_info["ball"]
         return command
 
     def reset(self):
